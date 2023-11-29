@@ -3,6 +3,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,24 +32,29 @@ func main() {
 			os.Exit(1)
 		}
 		wol.BroadcastMagicPack(hwAddr)
-
-	} else {
-		c = make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
-		if !cmds.NoWebs {
-			go webs.WEBServ()
-		}
-
-		if !cmds.NoWols {
-			go wol.WOLServ()
-		}
-
-		if !cmds.NoScan {
-			go list.ScanLAN()
-		}
-
-		<-c
-		fmt.Printf("Exit.\n")
+		return
 	}
+
+	logFile, err := os.OpenFile(cmds.LogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
+	log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+	defer logFile.Close()
+
+	if !cmds.NoWebs {
+		go webs.WEBServ()
+	}
+
+	if !cmds.NoWols {
+		go wol.WOLServ()
+	}
+
+	if !cmds.NoScan {
+		go list.ScanLAN()
+	}
+
+	c = make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-c
 }

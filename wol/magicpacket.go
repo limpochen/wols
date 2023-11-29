@@ -3,8 +3,8 @@ package wol
 import (
 	"fmt"
 	"net"
-	"os"
 	"wols/cmds"
+	"wols/llog"
 	"wols/nic"
 )
 
@@ -34,7 +34,7 @@ func genMagicPacket(mac nic.HardwareAddrFixed) (packet magicPacket) {
 	return packet
 }
 
-func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) error {
+func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) {
 	nic.ParseNif()
 	for i := range nic.Nifs {
 		for ii := range nic.Nifs[i].Nips {
@@ -51,22 +51,21 @@ func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) error {
 			}
 			c, err := net.DialUDP("udp", &la, &ra)
 			if err != nil {
-				fmt.Printf("error: %v\t", nic.Nifs[i].Nips[ii].Ip)
-				fmt.Println(err)
-				return err
+				llog.Error(fmt.Sprint(err, ":", nic.Nifs[i].Nips[ii].Ip))
+				//return err
+				continue
 			}
 
 			for idx := 1; idx <= cmds.BCCycle; idx++ {
 				_, err = c.Write(genMagicPacket(hwAddr).Bytes())
 				if err != nil {
-					fmt.Fprintln(os.Stderr, err)
+					llog.Error(err.Error())
 				}
 			}
 			c.Close()
-			fmt.Printf("Sent %v to %s:%d on %s\n", hwAddr.String(), nic.Nifs[i].Nips[ii].GetBroadcastIP().String(), cmds.PortWols, nic.Nifs[i].Nips[ii].Ip.String())
+			llog.Info(fmt.Sprintf("from %v broadcast %v at %s:%d", nic.Nifs[i].Nips[ii].Ip.String(), hwAddr.String(), nic.Nifs[i].Nips[ii].GetBroadcastIP().String(), cmds.PortSent))
 		}
 	}
-	return nil
 }
 
 // 从魔术包中提取硬件MAC地址

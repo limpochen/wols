@@ -3,32 +3,31 @@ package cmds
 import (
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
-/*
-Usage:	wols [-Flags] [-Flags] ...
-Flags:
-
-	-hwaddr <MAC>:	 	MAC to be broadcast.
-	-cycle <int>:		Broadcast cycle (1 to 16).
-	-no-wols:			Disable WOL service.
-	-no-webs:			Disable WEB service.
-	-no-scan:			Do not scan LAN hosts.
-	-port-wols <int>:	Port of WOL service.
-	-port-webs <int>:	Port of WEB service.
-	-port-send <int>:	Port of Boradcast.
-
-Eg:
-	wols send -hwaddr 12:34:56:70:9A:BC
-	wols serv -no-wols -port-webs 8080
-*/
-
-var HWAddr string
-var BCCycle int
-var NoWols, NoWebs, NoScan bool
-var PortWols, PortWebs, PortSent int
+var (
+	ExecPath                     string
+	BaseName                     string
+	LogFile                      string
+	LogLevelString               string
+	NoLog                        bool
+	HWAddr                       string
+	BCCycle                      int
+	NoWols, NoWebs, NoScan       bool
+	PortWols, PortWebs, PortSent int
+)
+var LogLevel = -1 //Undefined
 
 func init() {
+	ExecPath, _ = os.Executable()
+	ExecPath, _ = filepath.EvalSymlinks(ExecPath)
+	ext := filepath.Ext(ExecPath)
+	BaseName = strings.TrimSuffix(ExecPath, ext)
+	ExecPath = filepath.Dir(ExecPath)
+
 	flag.StringVar(&HWAddr, "hwaddr", "", "MAC to be broadcast.")
 	flag.IntVar(&BCCycle, "cycle", 3, "Broadcast cycle (1 to 16).")
 	flag.BoolVar(&NoWols, "no-wols", false, "Disable WOL service.")
@@ -37,8 +36,26 @@ func init() {
 	flag.IntVar(&PortWols, "port-wols", 12307, "Port of WOL service.")
 	flag.IntVar(&PortWebs, "port-webs", 7077, "Port of WEB service.")
 	flag.IntVar(&PortSent, "port-sent", 7, "Port of Boradcast.")
-
+	flag.StringVar(&LogFile, "logfile", "", "Full path of log file.")
+	flag.BoolVar(&NoLog, "nolog", false, "Do not log to file.")
+	flag.StringVar(&LogLevelString, "loglevel", "info", "debug, info, warn, error")
 	flag.Parse()
+
+	if LogFile == "" {
+		LogFile = BaseName + ".log"
+	}
+
+	l := []string{"debug", "info", "warn", "error", "panic", "fetal"}
+	for idx, lvl := range l {
+		if LogLevelString == lvl {
+			LogLevel = idx
+			break
+		}
+	}
+	if LogLevel == -1 {
+		LogLevel = 1 //Info
+	}
+	println(LogLevel)
 }
 
 func Usage() error {

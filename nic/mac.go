@@ -12,7 +12,8 @@ const HwAddrFixedLen = 6
 type HardwareAddrFixed [6]byte
 
 func (mac HardwareAddrFixed) String() string {
-	const macDigit = "0123456789abcdef"
+	const macDigit = "0123456789ABCDEF"
+	//const macDigit = "0123456789abcdef"
 
 	if len(mac) == 0 {
 		return ""

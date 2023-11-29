@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"wols/cmds"
+	"wols/llog"
 )
 
 func WOLServ() {
@@ -14,7 +15,7 @@ func WOLServ() {
 		panic(err)
 	}
 	//开始UDP监听
-	fmt.Println("WOL Server listen on port:" + strconv.Itoa(cmds.PortWols))
+	llog.Info(fmt.Sprint("WOL Server listen on port:" + strconv.Itoa(cmds.PortWols)))
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		panic(err)
@@ -27,9 +28,10 @@ func WOLServ() {
 		bufUDP := make([]byte, 60000)
 		_, _, err := conn.ReadFromUDP(bufUDP)
 		if err != nil {
-			fmt.Println(err)
+			llog.Error(fmt.Sprint(err))
 			continue
 		}
+
 		hwAddr := GetMagicPacketMacFromBuffer(bufUDP)
 		if hwAddr != nil {
 			BroadcastMagicPack(*hwAddr)

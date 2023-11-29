@@ -7,11 +7,11 @@ import (
 	"html"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"wols/cmds"
+	"wols/llog"
 	"wols/nic"
 	"wols/wol"
 )
@@ -47,7 +47,7 @@ func respHtml(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/":
 		fallthrough
-	case "index.htm":
+	case "/index.htm":
 		fallthrough
 	case "/index.html":
 		w.Header().Set(setMime(r.URL.Path))
@@ -64,7 +64,7 @@ func respHtml(w http.ResponseWriter, r *http.Request) {
 		if len(mac) != 0 {
 			hwAddr, err := nic.StringToMAC(mac)
 			if err != nil {
-				fmt.Println(err)
+				llog.Error(fmt.Sprint(err, ":", r.URL.Path))
 				msg = fmt.Sprint(err)
 			} else {
 				wol.BroadcastMagicPack(hwAddr)
@@ -74,17 +74,18 @@ func respHtml(w http.ResponseWriter, r *http.Request) {
 
 		b, err := webFS.ReadFile("static/index.html")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERR: %v\n%v\n", err, "static"+r.URL.Path)
+			llog.Error(fmt.Sprint(err, ":", r.URL.Path))
 		}
 		wf := string(b)
 		wf = strings.Replace(wf, "@varmac@", mac, 1)
 		wf = strings.Replace(wf, "@varmsg@", msg, 1)
 		fmt.Fprint(w, wf)
+		llog.Debug(fmt.Sprint("static/index.html -> ", r.URL.Path))
 
 	default:
 		w.WriteHeader(http.StatusNotFound)
+		llog.Debug(fmt.Sprint(http.StatusNotFound, " -> ", r.URL.Path))
 	}
-
 }
 
 func putJson(w http.ResponseWriter, r *http.Request) {
@@ -99,18 +100,20 @@ func respStatic(w http.ResponseWriter, r *http.Request) {
 	if s == "/favicon.ico" {
 		s = "/favicon.png"
 	}
-	b, err := webFS.ReadFile("static" + s)
+	s = "static" + s
+	b, err := webFS.ReadFile(s)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(os.Stderr, "ERR: %v\n%v\n", err, "static"+r.URL.Path)
+		llog.Error(fmt.Sprint(err, ":", r.URL.Path))
 		return
 	}
 	w.Header().Set(setMime(s))
 	w.Write(b)
+	llog.Debug(fmt.Sprint(s, " -> ", r.URL.Path))
 }
 
 func WEBServ() {
-	fmt.Println("WEB Server listen on port:" + strconv.Itoa(cmds.PortWebs))
+	llog.Info(fmt.Sprint("WEB Server listen on port:", strconv.Itoa(cmds.PortWebs)))
 
 	http.HandleFunc("/", respHtml)
 	http.HandleFunc("/text.json", putJson)
@@ -123,9 +126,9 @@ func WEBServ() {
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-
 }
 
+/*
 func ParseRequest(r *http.Request) {
 	fmt.Printf("Mothod:\t%v\n", r.Method)
 
@@ -162,3 +165,4 @@ func ParseRequest(r *http.Request) {
 	fmt.Printf("RequestURI:\t%v\n", r.RequestURI)
 
 }
+*/
