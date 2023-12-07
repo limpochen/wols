@@ -25,5 +25,5 @@ function notify(title, content) {
 			$(`#msg_${this_index}`).remove()
 			count--	
 		})
-	}, 3000);
+	}, 6000);
 }
