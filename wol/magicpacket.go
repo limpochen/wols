@@ -172,3 +172,7 @@ func GetMagicPacketMacFromBuffer(buf []byte) *nic.HardwareAddrFixed {
 
 	return nil
 }
+
+func GetMagicpacket(buf []byte) *nic.HardwareAddrFixed {
+	return nil
+}

@@ -5,3 +5,5 @@ wols
 *.zip
 *.log
 *.bat
+*.recent
+*.xlsx

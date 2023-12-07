@@ -33,8 +33,9 @@ func (mac HardwareAddrFixed) String() string {
 // 参数：含有MAC地址的文本
 // 返回：6字节MAC地址
 func StringToMAC(strMAC string) (mac HardwareAddrFixed, err error) {
-	delims := ":-"
-	reMAC := regexp.MustCompile(`^([0-9a-fA-F]{2}[` + delims + `]){5}([0-9a-fA-F]{2})$`)
+	//delims := ":-"
+	//reMAC := regexp.MustCompile(`^([0-9a-fA-F]{2}[` + delims + `]){5}([0-9a-fA-F]{2})$`)
+	reMAC := regexp.MustCompile(`^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$`)
 
 	if !reMAC.MatchString(strMAC) {
 		return mac, fmt.Errorf("%s is not a IEEE 802 MAC-48 address", strMAC)

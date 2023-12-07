@@ -2,22 +2,24 @@ package webs
 
 import (
 	"embed"
-	"encoding/json"
 	"fmt"
 	"html"
-	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"wols/cmds"
 	"wols/llog"
 	"wols/nic"
+	"wols/recent"
 	"wols/wol"
 )
 
 //go:embed static
 var webFS embed.FS
+
+var emb = false
 
 func setMime(s string) (string, string) {
 	mime := map[string]string{
@@ -44,6 +46,7 @@ func setMime(s string) (string, string) {
 }
 
 func respHtml(w http.ResponseWriter, r *http.Request) {
+	llog.Debug(r.URL.String())
 	switch r.URL.Path {
 	case "/":
 		fallthrough
@@ -51,48 +54,105 @@ func respHtml(w http.ResponseWriter, r *http.Request) {
 		fallthrough
 	case "/index.html":
 		w.Header().Set(setMime(r.URL.Path))
-		r.ParseForm() // 解析参数，默认是不会解析的
-		mac := ""
-		msg := ""
-
-		for k, v := range r.Form {
-			if k == "mac" {
-				mac = html.EscapeString(strings.Join(v, ""))
-			}
-		}
-
-		if len(mac) != 0 {
-			hwAddr, err := nic.StringToMAC(mac)
-			if err != nil {
-				llog.Error(fmt.Sprint(err, ":", r.URL.Path))
-				msg = fmt.Sprint(err)
-			} else {
-				wol.BroadcastMagicPack(hwAddr)
-				msg = "MagicPacket sent to: " + mac
-			}
-		}
 
 		b, err := webFS.ReadFile("static/index.html")
-		if err != nil {
-			llog.Error(fmt.Sprint(err, ":", r.URL.Path))
+		if !emb {
+			b, err = os.ReadFile("webs/static/index.html")
 		}
-		wf := string(b)
-		wf = strings.Replace(wf, "@varmac@", mac, 1)
-		wf = strings.Replace(wf, "@varmsg@", msg, 1)
-		fmt.Fprint(w, wf)
-		llog.Debug(fmt.Sprint("static/index.html -> ", r.URL.Path))
+
+		if err != nil {
+			llog.Error(err.Error() + ":" + r.URL.Path)
+		}
+
+		fmt.Fprint(w, string(b))
 
 	default:
 		w.WriteHeader(http.StatusNotFound)
-		llog.Debug(fmt.Sprint(http.StatusNotFound, " -> ", r.URL.Path))
+		llog.Debug("StatusNotFound(404) -> " + r.URL.Path)
 	}
+}
+
+func broadCast(w http.ResponseWriter, r *http.Request) {
+	//ParseRequest(r)
+	err := r.ParseForm() // 解析参数，默认是不会解析的
+	if err != nil {
+		println(err.Error())
+	}
+	mac := ""
+
+	for k, v := range r.Form {
+		if k == "mac" {
+			mac = html.EscapeString(strings.Join(v, ""))
+		}
+	}
+
+	hwAddr, err := nic.StringToMAC(mac)
+	if err != nil {
+		llog.Error(err.Error())
+		return
+	}
+
+	wol.BroadcastMagicPack(hwAddr)
+	recent.Add(hwAddr, "from Web")
+
+	w.Header().Set(setMime(r.URL.Path))
+	w.Write(recent.Json())
+}
+
+func reMove(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm() // 解析参数，默认是不会解析的
+	if err != nil {
+		println(err.Error())
+	}
+	mac := ""
+	for k, v := range r.Form {
+		if k == "mac" {
+			mac = html.EscapeString(strings.Join(v, ""))
+		}
+	}
+	hwAddr, err := nic.StringToMAC(mac)
+	if err != nil {
+		llog.Error(err.Error())
+		return
+	}
+	recent.Remove(hwAddr)
+	w.Header().Set(setMime(r.URL.Path))
+	w.Write(recent.Json())
+}
+
+func moDify(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm() // 解析参数，默认是不会解析的
+	if err != nil {
+		println(err.Error())
+	}
+	desc := ""
+	mac := ""
+	for k, v := range r.Form {
+		if k == "mac" {
+			mac = html.EscapeString(strings.Join(v, ""))
+		}
+
+		if k == "desc" {
+			desc = html.EscapeString(strings.Join(v, ""))
+		}
+	}
+	hwAddr, err := nic.StringToMAC(mac)
+	if err != nil {
+		llog.Error(err.Error())
+		return
+	}
+	_, err = recent.Modify(hwAddr, desc)
+	if err != nil {
+		llog.Error("modify desc:" + mac + " error:" + err.Error())
+	}
+	w.Header().Set(setMime(r.URL.Path))
+	w.Write([]byte(desc))
 }
 
 func putJson(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(setMime(r.URL.Path))
-	bytes, _ := json.MarshalIndent(nic.Nifs, "", "  ")
-	//fmt.Print(string(bytes))
-	w.Write(bytes)
+
+	w.Write(recent.Json())
 }
 
 func respStatic(w http.ResponseWriter, r *http.Request) {
@@ -101,22 +161,29 @@ func respStatic(w http.ResponseWriter, r *http.Request) {
 		s = "/favicon.png"
 	}
 	s = "static" + s
+
 	b, err := webFS.ReadFile(s)
+	if !emb {
+		b, err = os.ReadFile("webs/" + s)
+	}
+
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		llog.Error(fmt.Sprint(err, ":", r.URL.Path))
+		llog.Error(err.Error() + ":" + r.URL.Path)
 		return
 	}
 	w.Header().Set(setMime(s))
 	w.Write(b)
-	llog.Debug(fmt.Sprint(s, " -> ", r.URL.Path))
 }
 
 func WEBServ() {
 	llog.Info(fmt.Sprint("WEB Server listen on port:", strconv.Itoa(cmds.PortWebs)))
 
 	http.HandleFunc("/", respHtml)
-	http.HandleFunc("/text.json", putJson)
+	http.HandleFunc("/broadcast.html", broadCast)
+	http.HandleFunc("/remove.html", reMove)
+	http.HandleFunc("/modify.html", moDify)
+	http.HandleFunc("/recents.json", putJson)
 	http.HandleFunc("/favicon.ico", respStatic)
 	http.HandleFunc("/css/", respStatic)
 	http.HandleFunc("/purecss3/", respStatic)
@@ -124,11 +191,11 @@ func WEBServ() {
 
 	err := http.ListenAndServe(":"+strconv.Itoa(cmds.PortWebs), nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		llog.Error("ListenAndServe: " + err.Error())
 	}
+
 }
 
-/*
 func ParseRequest(r *http.Request) {
 	fmt.Printf("Mothod:\t%v\n", r.Method)
 
@@ -160,9 +227,11 @@ func ParseRequest(r *http.Request) {
 	for k, v := range r.Form {
 		fmt.Printf("\t%v\t%v:\n", k, v)
 	}
-
+	fmt.Println("PostForm:")
+	for k, v := range r.PostForm {
+		fmt.Printf("\t%v\t%v:\n", k, v)
+	}
 	fmt.Printf("RemoteAddr:\t%v\n", r.RemoteAddr)
 	fmt.Printf("RequestURI:\t%v\n", r.RequestURI)
 
 }
-*/

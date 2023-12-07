@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"wols/cmds"
 	"wols/list"
+	"wols/llog"
 	"wols/nic"
+	"wols/recent"
 	"wols/webs"
 	"wols/wol"
 )
@@ -41,6 +43,11 @@ func main() {
 	}
 	log.SetOutput(io.MultiWriter(os.Stderr, logFile))
 	defer logFile.Close()
+
+	err = recent.Load()
+	if err != nil {
+		llog.Debug(err.Error())
+	}
 
 	if !cmds.NoWebs {
 		go webs.WEBServ()

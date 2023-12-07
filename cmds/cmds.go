@@ -38,7 +38,7 @@ func init() {
 	flag.IntVar(&PortSent, "port-sent", 7, "Port of Boradcast.")
 	flag.StringVar(&LogFile, "logfile", "", "Full path of log file.")
 	flag.BoolVar(&NoLog, "nolog", false, "Do not log to file.")
-	flag.StringVar(&LogLevelString, "loglevel", "info", "debug, info, warn, error")
+	flag.StringVar(&LogLevelString, "loglevel", "debug", "Eg.: debug, info, warn, error")
 	flag.Parse()
 
 	if LogFile == "" {
@@ -53,9 +53,8 @@ func init() {
 		}
 	}
 	if LogLevel == -1 {
-		LogLevel = 1 //Info
+		LogLevel = 1 //0:Debug 1:Info 2:Warn 3:Error
 	}
-	println(LogLevel)
 }
 
 func Usage() error {
