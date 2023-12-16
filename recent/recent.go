@@ -22,10 +22,10 @@ type recent struct {
 
 var recents []recent
 
-var recentFile = cmds.BaseName + ".recent"
+var recentsFile = cmds.BaseName + ".recent"
 
 func Load() error {
-	rf, err := os.ReadFile(recentFile)
+	rf, err := os.ReadFile(recentsFile)
 	if err != nil {
 		return err
 	}
@@ -58,11 +58,9 @@ func Write() error {
 		return fmt.Errorf("recents is empty")
 	}
 
-	err := os.WriteFile(recentFile, Json(), 0x644)
-	if err != nil {
+	if err := os.WriteFile(recentsFile, Json(), 0666); err != nil {
 		return err
 	}
-
 	return nil
 }
 

@@ -1,29 +1,45 @@
-var count = 0
-var index = 0
+const tip = 0
+const err = 1
 
-function createtips() {
-	$("body").append('<div id="msgpad"></div>')
-	$("#msgpad").addClass("tipspad")
-}
+var tips = {
+	count: 0,
+	index: 0,
 
-function notify(title, content) {
-	if (count==0) {
-		index = 0
-	}
+	Create: function() {
+		$("body").append('<div id="msgpad"></div>')
+		$("#msgpad").addClass("tipspad")
+	},
 
-	count++
-	index++
-	var this_index = index
+	Notify:	function (title, content, type = tip, time = 6) {
+		if (this.count == 0) {
+			this.index = 0
+		}
 
-	$("#msgpad").prepend(`<div id="msg_${this_index}" class="tipsbox"></div>`)
-	$(`#msg_${this_index}`).append(`<h4>${title}</h4>`)
-	$(`#msg_${this_index}`).append(`<p>${content}</p>`)
-	$(`#msg_${this_index}`).slideDown("slow")
+		this.count++
+		this.index++
+		var this_index = this.index
 
-	setTimeout(() => {
-		$(`#msg_${this_index}`).fadeOut("slow", () => {
-			$(`#msg_${this_index}`).remove()
-			count--	
-		})
-	}, 3000);
+		var msgbox = $(`<div id="msg-${this_index}" class="tipsbox"></div>`)
+		msgbox.append(`<h5 class="boxtitle"><i class="icon-notify"></i>&nbsp;<span class="title"></span></h5>`)
+		msgbox.append(`<div class="line"></div>`)
+		msgbox.append(`<p class="content"></p>`)
+		$("#msgpad").prepend(msgbox)
+		$(`#msg-${this_index} .title`).text(''+title)
+		$(`#msg-${this_index} .content`).text(content)
+		if (type == err) {
+			$(".icon-notify").addClass("icon-err")
+		} else {
+			$(".icon-notify").addClass("icon-tip")
+		}
+		$(`#msg-${this_index}`).slideDown("fast")
+
+		setTimeout(() => {
+			$(`#msg-${this_index}`).fadeOut("slow", () => {
+				$(`#msg-${this_index}`).remove()
+				this.count--
+			})
+		}, time * 1000);
+
+	},
+
 }

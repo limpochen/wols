@@ -2,8 +2,8 @@ package webs
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
-	"html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,10 +16,19 @@ import (
 	"wols/wol"
 )
 
+type responseStates struct {
+	Status string `json:"status"`
+	Extra  string `json:"extra"`
+}
+
+func (rs *responseStates) json() []byte {
+	bytes, _ := json.MarshalIndent(rs, "", "  ")
+	return bytes
+}
+
 //go:embed static
 var webFS embed.FS
-
-var emb = false
+var emb = true
 
 func setMime(s string) (string, string) {
 	mime := map[string]string{
@@ -73,80 +82,121 @@ func respHtml(w http.ResponseWriter, r *http.Request) {
 }
 
 func broadCast(w http.ResponseWriter, r *http.Request) {
-	//ParseRequest(r)
-	err := r.ParseForm() // 解析参数，默认是不会解析的
+	var rs responseStates
+
+	err := r.ParseForm()
 	if err != nil {
-		println(err.Error())
+		llog.Error("broadcast: " + err.Error())
 	}
 	mac := ""
+	desc := ""
 
 	for k, v := range r.Form {
 		if k == "mac" {
-			mac = html.EscapeString(strings.Join(v, ""))
+			mac = strings.Join(v, "")
+		}
+		if k == "desc" {
+			desc = strings.Join(v, "")
 		}
 	}
-
+	llog.Debug(fmt.Sprintf("MAC: %v;DSC: %v", mac, desc))
 	hwAddr, err := nic.StringToMAC(mac)
 	if err != nil {
 		llog.Error(err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
 		return
 	}
 
 	wol.BroadcastMagicPack(hwAddr)
-	recent.Add(hwAddr, "from Web")
+	_, err = recent.Add(hwAddr, desc)
+	if err != nil {
+		llog.Error("Error to add recent: " + err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
+		return
+	}
 
-	w.Header().Set(setMime(r.URL.Path))
-	w.Write(recent.Json())
+	rs.Status = "success"
+	w.Write(rs.json())
 }
 
 func reMove(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm() // 解析参数，默认是不会解析的
+	var rs responseStates
+
+	err := r.ParseForm()
 	if err != nil {
-		println(err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
+		return
 	}
 	mac := ""
 	for k, v := range r.Form {
 		if k == "mac" {
-			mac = html.EscapeString(strings.Join(v, ""))
+			mac = strings.Join(v, "")
 		}
 	}
 	hwAddr, err := nic.StringToMAC(mac)
 	if err != nil {
 		llog.Error(err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
 		return
 	}
-	recent.Remove(hwAddr)
-	w.Header().Set(setMime(r.URL.Path))
-	w.Write(recent.Json())
+	err = recent.Remove(hwAddr)
+	if err != nil {
+		llog.Error("Error to remove recent: " + err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
+		return
+	}
+	rs.Status = "success"
+	w.Write(rs.json())
 }
 
 func moDify(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm() // 解析参数，默认是不会解析的
+	var rs responseStates
+
+	err := r.ParseForm()
 	if err != nil {
-		println(err.Error())
+		llog.Error("modify: " + err.Error())
 	}
 	desc := ""
 	mac := ""
 	for k, v := range r.Form {
 		if k == "mac" {
-			mac = html.EscapeString(strings.Join(v, ""))
+			mac = strings.Join(v, "")
 		}
 
 		if k == "desc" {
-			desc = html.EscapeString(strings.Join(v, ""))
+			desc = strings.Join(v, "")
 		}
 	}
+	llog.Debug("modify desc: " + mac + desc)
 	hwAddr, err := nic.StringToMAC(mac)
 	if err != nil {
 		llog.Error(err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
 		return
 	}
 	_, err = recent.Modify(hwAddr, desc)
 	if err != nil {
 		llog.Error("modify desc:" + mac + " error:" + err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
+		return
 	}
-	w.Header().Set(setMime(r.URL.Path))
-	w.Write([]byte(desc))
+	// todo: 返回信息而不是JSON
+	rs.Status = "success"
+	w.Write(rs.json())
 }
 
 func putJson(w http.ResponseWriter, r *http.Request) {
@@ -180,58 +230,17 @@ func WEBServ() {
 	llog.Info(fmt.Sprint("WEB Server listen on port:", strconv.Itoa(cmds.PortWebs)))
 
 	http.HandleFunc("/", respHtml)
-	http.HandleFunc("/broadcast.html", broadCast)
-	http.HandleFunc("/remove.html", reMove)
-	http.HandleFunc("/modify.html", moDify)
-	http.HandleFunc("/recents.json", putJson)
+	http.HandleFunc("/broadcast", broadCast)
+	http.HandleFunc("/remove", reMove)
+	http.HandleFunc("/modify", moDify)
+	http.HandleFunc("/recents", putJson)
 	http.HandleFunc("/favicon.ico", respStatic)
 	http.HandleFunc("/css/", respStatic)
-	http.HandleFunc("/purecss3/", respStatic)
 	http.HandleFunc("/script/", respStatic)
 
 	err := http.ListenAndServe(":"+strconv.Itoa(cmds.PortWebs), nil)
 	if err != nil {
 		llog.Error("ListenAndServe: " + err.Error())
 	}
-
-}
-
-func ParseRequest(r *http.Request) {
-	fmt.Printf("Mothod:\t%v\n", r.Method)
-
-	fmt.Printf("URL:\t%v\n", r.URL)
-	fmt.Printf("\tScheme:\t%v\n", r.URL.Scheme)
-	fmt.Printf("\tOpaque:\t%v\n", r.URL.Opaque)
-	fmt.Printf("\tUser:\t%v\n", r.URL.User)
-	fmt.Printf("\tHost:\t%v\n", r.URL.Host)
-	fmt.Printf("\tPath:\t%v\n", r.URL.Path)
-	fmt.Printf("\tRawPath:\t%v\n", r.URL.RawPath)
-	fmt.Printf("\tOmitHost:\t%v\n", r.URL.OmitHost)
-	fmt.Printf("\tForceQuery:\t%v\n", r.URL.ForceQuery)
-	fmt.Printf("\tRawQuery:\t%v\n", r.URL.RawQuery)
-	fmt.Printf("\tFragment:\t%v\n", r.URL.Fragment)
-	fmt.Printf("\tRawFragment:\t%v\n", r.URL.RawFragment)
-
-	fmt.Println("Header:")
-	for k, v := range r.Header {
-		fmt.Printf("\t%v:\n", k)
-		for _, v2 := range v {
-			fmt.Printf("\t\t%v\n", v2)
-		}
-	}
-
-	fmt.Printf("Host:\t%v\n", r.Host)
-
-	r.ParseForm()
-	fmt.Println("Form:")
-	for k, v := range r.Form {
-		fmt.Printf("\t%v\t%v:\n", k, v)
-	}
-	fmt.Println("PostForm:")
-	for k, v := range r.PostForm {
-		fmt.Printf("\t%v\t%v:\n", k, v)
-	}
-	fmt.Printf("RemoteAddr:\t%v\n", r.RemoteAddr)
-	fmt.Printf("RequestURI:\t%v\n", r.RequestURI)
 
 }

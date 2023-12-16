@@ -1,106 +1,26 @@
 <!doctype html>
-<html lang="en">
-
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" type="text/css" href="css/main.css">
-  <link rel="stylesheet" type="text/css" href="css/purecss3/pure.css">
-  <link rel="stylesheet" type="text/css" href="css/purecss3/grids-responsive.css">
-  <link rel="stylesheet" type="text/css" href="css/font-awesome-4.7.0/css/font-awesome.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="css/icon/style.css">
   <script type="text/javascript" src="script/jquery-3.7.1.js"></script>
-  <script type="text/javascript" src="script/main.js"></script>
   <script type="text/javascript" src="script/tipspad.js"></script>
-  <script>
-    $(document).ready(function () {
-      getRecents();
-      createtips();
-
-      //...
-    });
-  </script>
+  <script type="text/javascript" src="script/recents.js"></script>
+  <script type="text/javascript" src="script/main.js"></script>
   <title>WOLS</title>
-<style scoped>
-  .button-ok,
-.button-close {
-  background-color: transparent;
-  border-color: #d3d3d3;
-  font-size: 50%;
-  top: 5px;
-}
-
-.button-ok {
-  color: rgb(12, 192, 12);
-  position: absolute;
-  right: 0;
-}
-
-.button-close {
-  color: rgb(231, 105, 14);
-  position: absolute;
-  right: 0;
-}
-
-.button-warn,
-.button-send {
-  color: white;
-  border-radius: 4px;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-  font-size: 100%;
-}
-
-.button-warn {
-  background: rgb(255, 96, 0);
-  /* this is an orange */
-}
-
-.button-send {
-  background: rgb(22, 113, 231);
-  /* this is a light blue */
-}
-</style>
-
 </head>
-
 <body>
-  <div style="height: 48px;"></div>
-  <div class="pure-g">
-    <div class="pure-u-1 pure-u-md-1-4"></div>
-    <div class="pure-u-1 pure-u-md-1-2">
-      <div class="pure-g">
-        <div class="pure-u-2-3" style="margin:auto;">
-          <h3>Enter a MAC for WOL:</h3>
-          <form class="pure-form" name="input">
-            <input style="display: none;" name="op" value="broadcast">
-            <input id="input-mac" class="pure-input-3-4" type="text" name="mac" placeholder="Place a MAC address" onkeydown="KeyMac(event)">
-            <input class="pure-button pure-button-primary" type="button" value="Send..." onclick="SendMac()">
-          </form>
-        </div>
-        <div id="lists" class="pure-u-1">
-          <div style="height: 48px;"></div>
-          <p>Recents:</p>
-        </div>
-        <div class="pure-u-1" style="width:100%">
-          <table class="pure-table" style="width:100%;font-size:14px;">
-            <thead>
-              <tr>
-                <th style="text-align:center;width:4%">#</th>
-                <th style="text-align:center;width:16%">MAC</th>
-                <th style="text-align:center;width:5%">Count</th>
-                <th style="text-align:center;width:20%">Last Sent</th>
-                <th style="text-align:center;width:40%">Desc</th>
-                <th style="text-align:center;width:15%">OP</th>
-              </tr>
-            </thead>
-            <tbody id="recents">
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div class="pure-u-md-1-4"></div>
+  <div id="new-send">
+    <h4>Enter a MAC for WOL:</h4>
+    <form name="sendmac">
+      <input type="text" style="display:none">
+      <input id="input-mac" type="text" name="input-mac" placeholder="Place a MAC address">
+      <button id="main-send" type="button"><i class="icon-send">&nbsp;Send</i></button>
+    </form>
   </div>
-
+  <div id="recents"></div>
+  <footer>
+    <p>WOLS 2023 limpo@live.com</p>
+  </footer>
 </body>
-
 </html>
