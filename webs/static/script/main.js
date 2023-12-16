@@ -75,7 +75,6 @@ function ModifyDesc(byId, mac) {
 
     $(`#${byId}`).html(`<form class="pure-form" style="position:relative;"></form>`)
     $(`#${byId} form`).append(`<input class="pure-input-1" type ="text" id="${byId}_desc" value = "${desc}" onkeydown="KeyDesc(event,'${byId}','${desc}','${mac}')">`)
-    $(`#${byId} form`).append(`<input style="display: none;">`)
     $(`#${byId} form`).append(`<button id="${byId}_ok" type="button" class="button-ok pure-button" title="Save this description" onclick="SaveDesc('${byId}','${desc}','${mac}')"></button>`)
     $(`#${byId}_ok`).append(`<i class="fa fa-check"></i>`)
     $(`#${byId}_desc`).focus()
