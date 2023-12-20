@@ -12,8 +12,7 @@
 <body>
   <div id="new-send">
     <h4>Enter a MAC for WOL:</h4>
-    <form name="sendmac">
-      <input type="text" style="display:none">
+    <form name="sendmac" method="post" autocomplete="off" onsubmit="return false;">
       <input id="input-mac" type="text" name="input-mac" placeholder="Place a MAC address">
       <button id="main-send" type="button"><i class="icon-send">&nbsp;Send</i></button>
     </form>

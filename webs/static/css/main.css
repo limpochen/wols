@@ -21,10 +21,8 @@ tr.preremove {
 }
 
 tr.remove {
-  background-color: sandybrown;
+  background-color: rgb(255, 239, 94);
 }
-
-
 /* End Blink*/
 
 /* Start Tips*/
@@ -59,11 +57,11 @@ div.tipsbox {
 }
 
 .icon-err {
-  color: red;
+  color:rgb(226, 31, 5);
 }
 
 .icon-tip {
-  color: green;
+  color: rgb(79, 138, 13);
 }
 
 .boxtitle {
@@ -106,10 +104,11 @@ div.line {
 
 /* Start Inputs*/
 input[type="text"] {
-  border-bottom: 1px solid #cccccc;
+  border-bottom: 1px solid #66aaff;
   border-top-width: 0;
   border-left-width: 0;
   border-right-width: 0;
+  background: none;
 }
 
 input[type="text"]:focus {
@@ -117,6 +116,7 @@ input[type="text"]:focus {
 }
 
 #input-mac {
+  width: 300px;
   padding: 5px;
   font-size: medium;
   font-family: 'Courier New', Courier, monospace;
@@ -266,6 +266,10 @@ div#recents table td {
   color: rgb(104, 104, 104);
 }
 
+tr.even {
+  background-color: #fafafa;
+}
+
 td.mac {
   text-align: center;
   font-family: 'Courier New', Courier, monospace;
@@ -286,18 +290,14 @@ td.desc form {
 
 /* End Table */
 
-#input-mac {
-  width: 300px;
-}
-
-
+/* Start Main body */
 div#new-send,
 div#recent {
   margin: auto;
   padding: 20px;
 }
 
-/*=========*/
 footer {
   margin: 20px;
 }
+/* End Main body */

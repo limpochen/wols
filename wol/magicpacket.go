@@ -3,7 +3,7 @@ package wol
 import (
 	"fmt"
 	"net"
-	"wols/cmds"
+	"wols/config"
 	"wols/llog"
 	"wols/nic"
 )
@@ -47,7 +47,7 @@ func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) {
 			}
 			ra := net.UDPAddr{
 				IP:   nic.Nifs[i].Nips[ii].GetBroadcastIP(),
-				Port: cmds.PortSent,
+				Port: config.Cfg.BroadcastPort,
 			}
 			c, err := net.DialUDP("udp", &la, &ra)
 			if err != nil {
@@ -56,14 +56,18 @@ func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) {
 				continue
 			}
 
-			for idx := 1; idx <= cmds.BCCycle; idx++ {
+			for idx := 1; idx <= config.Cfg.BroadcastCycle; idx++ {
 				_, err = c.Write(genMagicPacket(hwAddr).Bytes())
 				if err != nil {
 					llog.Error(err.Error())
 				}
 			}
 			c.Close()
-			llog.Info(fmt.Sprintf("from %v broadcast %v at %s:%d", nic.Nifs[i].Nips[ii].Ip.String(), hwAddr.String(), nic.Nifs[i].Nips[ii].GetBroadcastIP().String(), cmds.PortSent))
+			llog.Info(fmt.Sprintf("from %v broadcast %v at %s:%d",
+				nic.Nifs[i].Nips[ii].Ip.String(),
+				hwAddr.String(),
+				nic.Nifs[i].Nips[ii].GetBroadcastIP().String(),
+				config.Cfg.BroadcastPort))
 		}
 	}
 }

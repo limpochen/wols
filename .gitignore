@@ -8,4 +8,4 @@ wols
 *.recent
 *.xlsx
 *.txt
-
+wols.toml

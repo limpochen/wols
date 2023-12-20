@@ -1,0 +1,4 @@
+github.com/GuanceCloud/toml v1.2.5 h1:jBWfqFSVortEY0C4RYqFPvhDKcGxIosKzcQqTPtZMfg=
+github.com/GuanceCloud/toml v1.2.5/go.mod h1:D7S1XowYqOvMQdtsp2+lg2rKmO6RVuyekXJL+MzkD5Y=
+golang.org/x/crypto v0.17.0 h1:r8bRNjWL3GshPW3gkd+RpvzWrZAwPS49OmTGZ/uhM4k=
+golang.org/x/crypto v0.17.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=

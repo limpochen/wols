@@ -3,18 +3,21 @@ package webs
 import (
 	"embed"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"wols/cmds"
+	"wols/config"
 	"wols/llog"
 	"wols/nic"
 	"wols/recent"
 	"wols/wol"
 )
+
+//go:embed static
+var webFS embed.FS
+var emb = false
 
 type responseStates struct {
 	Status string `json:"status"`
@@ -26,18 +29,16 @@ func (rs *responseStates) json() []byte {
 	return bytes
 }
 
-//go:embed static
-var webFS embed.FS
-var emb = true
-
 func setMime(s string) (string, string) {
 	mime := map[string]string{
-		"html": "text/html",
-		"htm":  "text/html",
-		"css":  "text/css",
-		"js":   "text/javascript",
-		"ico":  "image/png",
-		"json": "application/json",
+		"html":   "text/html",
+		"htm":    "text/html",
+		"css":    "text/css",
+		"js":     "text/javascript",
+		"ico":    "image/png",
+		"png":    "image/png",
+		"json":   "application/json",
+		"recent": "application/json",
 	}
 
 	s = filepath.Ext(s)
@@ -54,162 +55,25 @@ func setMime(s string) (string, string) {
 	return "Content-Type", ts
 }
 
-func respHtml(w http.ResponseWriter, r *http.Request) {
-	llog.Debug(r.URL.String())
-	switch r.URL.Path {
-	case "/":
-		fallthrough
-	case "/index.htm":
-		fallthrough
-	case "/index.html":
-		w.Header().Set(setMime(r.URL.Path))
-
-		b, err := webFS.ReadFile("static/index.html")
-		if !emb {
-			b, err = os.ReadFile("webs/static/index.html")
-		}
-
-		if err != nil {
-			llog.Error(err.Error() + ":" + r.URL.Path)
-		}
-
-		fmt.Fprint(w, string(b))
-
-	default:
-		w.WriteHeader(http.StatusNotFound)
-		llog.Debug("StatusNotFound(404) -> " + r.URL.Path)
-	}
-}
-
-func broadCast(w http.ResponseWriter, r *http.Request) {
-	var rs responseStates
-
-	err := r.ParseForm()
-	if err != nil {
-		llog.Error("broadcast: " + err.Error())
-	}
-	mac := ""
-	desc := ""
-
-	for k, v := range r.Form {
-		if k == "mac" {
-			mac = strings.Join(v, "")
-		}
-		if k == "desc" {
-			desc = strings.Join(v, "")
-		}
-	}
-	llog.Debug(fmt.Sprintf("MAC: %v;DSC: %v", mac, desc))
-	hwAddr, err := nic.StringToMAC(mac)
-	if err != nil {
-		llog.Error(err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-
-	wol.BroadcastMagicPack(hwAddr)
-	_, err = recent.Add(hwAddr, desc)
-	if err != nil {
-		llog.Error("Error to add recent: " + err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-
-	rs.Status = "success"
-	w.Write(rs.json())
-}
-
-func reMove(w http.ResponseWriter, r *http.Request) {
-	var rs responseStates
-
-	err := r.ParseForm()
-	if err != nil {
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-	mac := ""
-	for k, v := range r.Form {
-		if k == "mac" {
-			mac = strings.Join(v, "")
-		}
-	}
-	hwAddr, err := nic.StringToMAC(mac)
-	if err != nil {
-		llog.Error(err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-	err = recent.Remove(hwAddr)
-	if err != nil {
-		llog.Error("Error to remove recent: " + err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-	rs.Status = "success"
-	w.Write(rs.json())
-}
-
-func moDify(w http.ResponseWriter, r *http.Request) {
-	var rs responseStates
-
-	err := r.ParseForm()
-	if err != nil {
-		llog.Error("modify: " + err.Error())
-	}
-	desc := ""
-	mac := ""
-	for k, v := range r.Form {
-		if k == "mac" {
-			mac = strings.Join(v, "")
-		}
-
-		if k == "desc" {
-			desc = strings.Join(v, "")
-		}
-	}
-	llog.Debug("modify desc: " + mac + desc)
-	hwAddr, err := nic.StringToMAC(mac)
-	if err != nil {
-		llog.Error(err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-	_, err = recent.Modify(hwAddr, desc)
-	if err != nil {
-		llog.Error("modify desc:" + mac + " error:" + err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-	// todo: 返回信息而不是JSON
-	rs.Status = "success"
-	w.Write(rs.json())
-}
-
 func putJson(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(setMime(r.URL.Path))
-
 	w.Write(recent.Json())
 }
 
 func respStatic(w http.ResponseWriter, r *http.Request) {
 	s := r.URL.Path
-	if s == "/favicon.ico" {
+	switch s {
+	case "/":
+		fallthrough
+	case "/index.htm":
+		s = "/index.html"
+
+	case "/favicon.ico":
 		s = "/favicon.png"
+
+	default:
 	}
+
 	s = "static" + s
 
 	b, err := webFS.ReadFile(s)
@@ -226,21 +90,97 @@ func respStatic(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
+func respOpt(w http.ResponseWriter, r *http.Request) {
+	var rs responseStates
+
+	err := r.ParseForm()
+	if err != nil {
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
+		return
+	}
+
+	hwAddr, err := nic.StringToMAC(strings.Join(r.Form["mac"], ""))
+	if err != nil {
+		llog.Error(err.Error())
+		rs.Status = "error"
+		rs.Extra = err.Error()
+		w.Write(rs.json())
+		return
+	}
+
+	var opts = strings.Split(r.URL.Path, "/")
+
+	switch opts[2] {
+	case "broadcast":
+		wol.BroadcastMagicPack(hwAddr)
+		_, err = recent.Add(hwAddr, strings.Join(r.Form["desc"], ""))
+		if err != nil {
+			llog.Error("Error to add recent: " + err.Error())
+			rs.Status = "error"
+			rs.Extra = err.Error()
+			w.Write(rs.json())
+			return
+		}
+	case "remove":
+		err = recent.Remove(hwAddr)
+		if err != nil {
+			llog.Error("Error to remove recent: " + err.Error())
+			rs.Status = "error"
+			rs.Extra = err.Error()
+			w.Write(rs.json())
+			return
+		}
+
+	case "modify":
+		_, err = recent.Modify(hwAddr, strings.Join(r.Form["desc"], ""))
+		if err != nil {
+			llog.Error("modify desc:" + err.Error())
+			rs.Status = "error"
+			rs.Extra = err.Error()
+			w.Write(rs.json())
+			return
+		}
+	default:
+		llog.Error("unknown command")
+		rs.Status = "error"
+		rs.Extra = "unknown command"
+		w.Write(rs.json())
+		return
+	}
+
+	rs.Status = "success"
+	w.Write(rs.json())
+}
+
 func WEBServ() {
-	llog.Info(fmt.Sprint("WEB Server listen on port:", strconv.Itoa(cmds.PortWebs)))
+	llog.Info("WEB Server listen on port:" + strconv.Itoa(config.Cfg.WebsPort))
 
-	http.HandleFunc("/", respHtml)
-	http.HandleFunc("/broadcast", broadCast)
-	http.HandleFunc("/remove", reMove)
-	http.HandleFunc("/modify", moDify)
-	http.HandleFunc("/recents", putJson)
-	http.HandleFunc("/favicon.ico", respStatic)
-	http.HandleFunc("/css/", respStatic)
-	http.HandleFunc("/script/", respStatic)
+	http.HandleFunc("/opt/", basicAuth(respOpt))
+	http.HandleFunc("/", basicAuth(respStatic))
+	http.HandleFunc("/recents", basicAuth(putJson))
 
-	err := http.ListenAndServe(":"+strconv.Itoa(cmds.PortWebs), nil)
+	err := http.ListenAndServe(":"+strconv.Itoa(config.Cfg.WebsPort), nil)
 	if err != nil {
 		llog.Error("ListenAndServe: " + err.Error())
 	}
 
+}
+
+func basicAuth(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !config.RequireAuth() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		username, password, ok := r.BasicAuth()
+		if ok && config.AuthUser(username, password) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	})
 }

@@ -1,7 +1,23 @@
+function randMac() {
+    var rmac = ""
+    $("#input-mac").val("")
+    for (i = 0; i <= 5; i++) {
+        rmac += ('0' + ("%02X", Math.floor((Math.random() * 254)) + 1).toString(16).toUpperCase()).slice(-2);
+
+        if (i < 5) {
+            rmac += "-";
+        }
+    }
+    $("#input-mac").val(rmac)
+}
+
 // Start here:
 $(document).ready(function () {
+    $("#input_mac").focus();
+
     tips.Create();
     recents.Load();
+    $("#new-send form").append('<button id="button-rand" type="button" onclick="randMac()">rand...</button>');
 
     $("#main-send").on("click", () => {
         if ($.trim($("#input-mac").val()) == "") {

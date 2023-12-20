@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"wols/cmds"
+	"wols/config"
 )
 
 type Nip struct {
@@ -127,7 +127,7 @@ func (n Nif) Print() {
 func Test() []byte {
 	ln := 1433
 	st := 711
-	mac, _ := StringToMAC(cmds.HWAddr)
+	mac, _ := StringToMAC(config.HWAddr)
 
 	buf := make([]byte, ln)
 	for i := 0; i < ln; i++ {

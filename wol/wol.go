@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 	"time"
-	"wols/cmds"
+	"wols/config"
 	"wols/llog"
 	"wols/nic"
 	"wols/recent"
@@ -13,7 +13,7 @@ import (
 
 func WOLServ() {
 	//设置UDP监听地址
-	addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(cmds.PortWols))
+	addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(config.Cfg.WolsPort))
 	if err != nil {
 		panic(err)
 	}
@@ -23,7 +23,7 @@ func WOLServ() {
 		panic(err)
 	}
 	defer conn.Close()
-	llog.Info(fmt.Sprint("WOL Server listen on port:" + strconv.Itoa(cmds.PortWols)))
+	llog.Info(fmt.Sprint("WOL Server listen on port:" + strconv.Itoa(config.Cfg.WolsPort)))
 
 	//接收UDP数据
 	RCount := 0

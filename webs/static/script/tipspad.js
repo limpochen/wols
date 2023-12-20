@@ -27,9 +27,9 @@ var tips = {
 		$(`#msg-${this_index} .title`).text(''+title)
 		$(`#msg-${this_index} .content`).text(content)
 		if (type == err) {
-			$(".icon-notify").addClass("icon-err")
+			$(`#msg-${this_index} .icon-notify`).addClass("icon-err")
 		} else {
-			$(".icon-notify").addClass("icon-tip")
+			$(`#msg-${this_index} .icon-notify`).addClass("icon-tip")
 		}
 		$(`#msg-${this_index}`).slideDown("fast")
 

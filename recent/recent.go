@@ -6,7 +6,7 @@ import (
 	"os"
 	"sort"
 	"time"
-	"wols/cmds"
+	"wols/config"
 	"wols/nic"
 )
 
@@ -22,15 +22,14 @@ type recent struct {
 
 var recents []recent
 
-var recentsFile = cmds.BaseName + ".recent"
+var recentsFile = config.BaseName + ".recent"
 
 func Load() error {
 	rf, err := os.ReadFile(recentsFile)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(rf, &recents)
-	if err != nil {
+	if err = json.Unmarshal(rf, &recents); err != nil {
 		return err
 	}
 	return Check()
@@ -55,7 +54,10 @@ func Check() error {
 
 func Write() error {
 	if len(recents) == 0 {
-		return fmt.Errorf("recents is empty")
+		if err := os.Remove(recentsFile); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if err := os.WriteFile(recentsFile, Json(), 0666); err != nil {

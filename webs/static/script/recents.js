@@ -1,4 +1,3 @@
-
 var recents = {
     recents: null, //json 格式
 
@@ -39,7 +38,8 @@ var recents = {
             success: function (data) {
                 recents.recents = data;
             },
-            error: function () {
+            error: function (xhr) {
+                tips.Notify("Load recents error",xhr.status + " " + xhr.statusText);
                 return;
             }
         });
@@ -74,9 +74,8 @@ var recents = {
                     <td class="last">${this.recents[idx].last}</td>
                     <td id="desc-${idx}" class="desc" title="Double click to modify this description">
                         <span id="spandesc-${idx}"></span>
-                        <form id="formdesc-${idx}">
+                        <form id="formdesc-${idx}" autocomplete="off" onsubmit="return false;">
                             <input id="newdesc-${idx}" type="text" class="newdesc" name="newdesc" value="${this.recents[idx].desc}">
-                            <input type="text" style="display:none">
                             <button id="savedesc-${idx}" type="button" class="savedesc" title="Save this description">
                                 <i class="icon-submit"></i>
                             </button>
@@ -90,6 +89,7 @@ var recents = {
                     </td>
                 </tr>`
             );
+            $("tr:even").addClass("even")
             $(`#spandesc-${idx}`).text(this.recents[idx].desc);
             $(`#modifydesc-${idx}`).hide();
             $(`#formdesc-${idx}`).hide();
@@ -99,7 +99,7 @@ var recents = {
     },
 
     RemoveMac: function (idx) {
-        if ($(`#tr-${idx}`).attr("class") != "preremove") {
+        if (!$(`#tr-${idx}`).hasClass("preremove")) {
             this.cleanStatus();
             $(`#sendmac-${idx}`).hide()
             $(`#noremove-${idx}`).show()
@@ -108,22 +108,25 @@ var recents = {
         }
 
         $(`#tr-${idx}`).removeClass("preremove");
+        $(`#tr-${idx}`).removeClass("even");
         $(`#tr-${idx}`).addClass("remove");
         let mac = $(`#tr-${idx} .mac`).html()
         let desc = $(`#tr-${idx} .desc`).text()
         setTimeout(() => {
             var obj = { mac: mac };
-            $.post("/remove", obj, function (data, status) {
-                tips.Notify("Remove " + status, `MAC: ${mac}(${desc})`);
+            $.post("/opt/remove", obj, function (data, status) {
                 var resp = JSON.parse(data);
                 if (resp.status == "error") {
                     tips.Notify("Error from Server", resp.extra, err, 10)
+                    return
                 }
+                tips.Notify("Remove " + status, `MAC: ${mac}(${desc})`);
+                console.log("load")
                 recents.Load();
             }).fail(function (n) {
                 tips.Notify("Remove failed", `MAC: ${macs}(${newDesc})`, err, 20);
             });
-        }, 100);
+        }, 200);
     },
 
     noRemove: function (idx) {
@@ -147,12 +150,13 @@ var recents = {
         var obj = { mac: mac, desc: macDesc };
 
         $.ajaxSettings.timeout = '3000';
-        $.post("/broadcast", obj, function (data, status) {
-            tips.Notify("Send " + status, `MAC: ${obj.mac}(${obj.desc})`);
+        $.post("/opt/broadcast", obj, function (data, status) {
             var resp = JSON.parse(data);
             if (resp.status == "error") {
                 tips.Notify("Error from Server", resp.extra, err, 10)
+                return
             }
+            tips.Notify("Send " + status, `MAC: ${obj.mac}(${obj.desc})`);
             $("#input-mac").val("");
             recents.Load();
         }).fail(function () {
@@ -177,12 +181,13 @@ var recents = {
             return;    
         } 
         var obj = { mac: mac, desc: desc }
-        $.post("/modify", obj, function (data, status) {
-            tips.Notify(`Modified ${status}`, `MAC: ${mac}(${desc})`);
+        $.post("/opt/modify", obj, function (data, status) {
             var resp = JSON.parse(data);
             if (resp.status == "error") {
                 tips.Notify("Error from Server", resp.extra, err, 10)
+                return
             }
+            tips.Notify(`Modified ${status}`, `MAC: ${mac}(${desc})`);
             recents.Load();
         }).fail(function (n) {
             tips.Notify("Modify failed", `MAC: ${mac}(${desc})`, err, 20);
@@ -200,7 +205,7 @@ var recents = {
             if ($(`#spandesc-${idx}`).is(':hidden')) {
                 this.CancelDesc(idx);
             }
-            if ($(`#tr-${idx}`).attr("class") == "preremove") {
+            if ($(`#tr-${idx}`).hasClass("preremove")) {
                 this.noRemove(idx)
             }
         }

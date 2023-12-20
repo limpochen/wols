@@ -3,13 +3,10 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"wols/cmds"
-	"wols/list"
+	"wols/config"
 	"wols/llog"
 	"wols/nic"
 	"wols/recent"
@@ -20,15 +17,19 @@ import (
 var c chan os.Signal
 
 func main() {
-	fmt.Print("wols (Wake-On-Lan Integrated service tool)  Copyright(C) 2023  limpo@live.com\n\n")
-	err := cmds.Usage()
+	//fmt.Print("wols (Wake-On-Lan Integrated service tool)  Copyright(C) 2023  limpo@live.com\n\n")
+	err := config.Usage()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if cmds.HWAddr != "" {
-		hwAddr, err := nic.StringToMAC(cmds.HWAddr)
+	if err = config.Load(); err != nil {
+		llog.Error(err.Error())
+	}
+
+	if config.HWAddr != "" {
+		hwAddr, err := nic.StringToMAC(config.HWAddr)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -37,29 +38,22 @@ func main() {
 		return
 	}
 
-	logFile, err := os.OpenFile(cmds.LogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
-	if err != nil {
-		panic(err)
-	}
-	log.SetOutput(io.MultiWriter(os.Stderr, logFile))
-	defer logFile.Close()
-
 	err = recent.Load()
 	if err != nil {
 		llog.Debug(err.Error())
 	}
 
-	if !cmds.NoWebs {
+	if config.Cfg.EnableWebs {
 		go webs.WEBServ()
 	}
 
-	if !cmds.NoWols {
+	if config.Cfg.EnableWols {
 		go wol.WOLServ()
 	}
 
-	if !cmds.NoScan {
-		go list.ScanLAN()
-	}
+	//if !config.NoScan {
+	//	go list.ScanLAN()
+	//}
 
 	c = make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

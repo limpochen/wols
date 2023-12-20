@@ -1,0 +1,41 @@
+# Requir Authentication
+Authentication = false
+
+# Authorized User
+Username = ""
+
+# Enter the plaintext password, WOLS will automatically encrypted
+Password = ""
+
+# true: Log to file(Default), 
+# false: Not log to file, the console log is not affected
+EnableLog = true
+
+# The full name of the path to the log file
+# The path separator uses "/" or "\\" (Windows), the same below
+LogFile = ""
+
+# The level at which the log is recorded
+# 1: Debug; 2: Info 3: Warn 4: Error
+LogLevel = 2
+
+# The path where the most recents are stored
+RecentsFile = ""
+
+# Enable WOLS services(Default: true)
+EnableWols = true
+
+# Enable WEB services(Default: true)
+EnableWebs = true
+
+# WOLS service port(Default: 12307)
+WolsPort = 12307
+
+# WEB service port(Default: 7707)
+WebsPort = 7077
+
+# Broadcast port on LAN(Default: 7)
+BroadcastPort = 7
+
+# Broadcast cycle(Default: 3)
+BroadcastCycle = 3
