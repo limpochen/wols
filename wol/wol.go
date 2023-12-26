@@ -3,27 +3,30 @@ package wol
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"time"
 	"wols/config"
 	"wols/llog"
 	"wols/nic"
-	"wols/recent"
 )
 
-func WOLServ() {
+func WOLServ(ch chan string) {
 	//设置UDP监听地址
-	addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(config.Cfg.WolsPort))
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", config.Cfg.Wols.WolsPort))
 	if err != nil {
-		panic(err)
+		llog.Error(err.Error())
+		ch <- "error"
+		return
 	}
 	//开始UDP监听
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		panic(err)
+		llog.Error(err.Error())
+		ch <- "error"
+		return
 	}
 	defer conn.Close()
-	llog.Info(fmt.Sprint("WOL Server listen on port:" + strconv.Itoa(config.Cfg.WolsPort)))
+
+	ch <- "ok"
 
 	//接收UDP数据
 	RCount := 0
@@ -55,8 +58,8 @@ func WOLServ() {
 			continue
 		}
 
-		BroadcastMagicPack(*hwAddr)
-		recent.Add(*hwAddr, "From net")
+		BroadcastMagicPack(*hwAddr, "From WOLS")
+
 		RCount = 0
 		LastMac = *hwAddr
 	}

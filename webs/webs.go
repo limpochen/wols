@@ -1,171 +1,84 @@
 package webs
 
 import (
-	"embed"
-	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"wols/config"
 	"wols/llog"
-	"wols/nic"
-	"wols/recent"
-	"wols/wol"
 )
 
-//go:embed static
-var webFS embed.FS
-var emb = false
+func httpServ(ch chan string) {
+	// pool := x509.NewCertPool()
+	// caCrt, err := os.ReadFile(config.Cfg.Webs.RootCA)
+	// if err != nil {
+	// 	log.Fatalln("ReadFile err:", err)
+	// }
+	// pool.AppendCertsFromPEM([]byte(caCrt))
 
-type responseStates struct {
-	Status string `json:"status"`
-	Extra  string `json:"extra"`
-}
+	var srv http.Server
+	mux := http.NewServeMux()
 
-func (rs *responseStates) json() []byte {
-	bytes, _ := json.MarshalIndent(rs, "", "  ")
-	return bytes
-}
+	mux.HandleFunc("/opt/", basicAuth(respOpt))
+	mux.HandleFunc("/recents", basicAuth(putJson))
+	mux.HandleFunc("/", basicAuth(respStatic))
 
-func setMime(s string) (string, string) {
-	mime := map[string]string{
-		"html":   "text/html",
-		"htm":    "text/html",
-		"css":    "text/css",
-		"js":     "text/javascript",
-		"ico":    "image/png",
-		"png":    "image/png",
-		"json":   "application/json",
-		"recent": "application/json",
+	if config.Cfg.Webs.EnableTls {
+		srv.Addr = fmt.Sprintf("localhost:%d", config.HttpsPort)
+	} else {
+		srv.Addr = fmt.Sprintf(":%d", config.Cfg.Webs.WebsPort)
 	}
+	srv.Handler = mux
+	// srv.TLSConfig = &tls.Config{
+	// 	MinVersion: tls.VersionTLS12,
+	// 	ClientCAs:  pool,
+	// 	ClientAuth: tls.RequireAndVerifyClientCert,
+	// }
 
-	s = filepath.Ext(s)
-	if s == "" {
-		s = ".html"
-	}
-
-	s = strings.ReplaceAll(s, ".", "")
-
-	ts, ok := mime[s]
-	if !ok {
-		return "Content-Type", "application/octet-stream"
-	}
-	return "Content-Type", ts
-}
-
-func putJson(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set(setMime(r.URL.Path))
-	w.Write(recent.Json())
-}
-
-func respStatic(w http.ResponseWriter, r *http.Request) {
-	s := r.URL.Path
-	switch s {
-	case "/":
-		fallthrough
-	case "/index.htm":
-		s = "/index.html"
-
-	case "/favicon.ico":
-		s = "/favicon.png"
-
-	default:
-	}
-
-	s = "static" + s
-
-	b, err := webFS.ReadFile(s)
-	if !emb {
-		b, err = os.ReadFile("webs/" + s)
-	}
-
+	ln, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		llog.Error(err.Error() + ":" + r.URL.Path)
+		llog.Error("Web service: " + err.Error())
+		ch <- "error"
 		return
 	}
-	w.Header().Set(setMime(s))
-	w.Write(b)
+	defer ln.Close()
+
+	llog.Debug("http(s) listen: " + srv.Addr)
+	ch <- "ok"
+
+	if config.Cfg.Webs.EnableTls {
+		err = srv.ServeTLS(ln, config.Cfg.Webs.CertFile, config.Cfg.Webs.KeyFile)
+	} else {
+		err = srv.Serve(ln)
+	}
+	if err != nil && err != http.ErrServerClosed {
+		llog.Error("Web service: " + err.Error())
+		ch <- "error"
+	} else {
+		ch <- "shutdown"
+	}
 }
 
-func respOpt(w http.ResponseWriter, r *http.Request) {
-	var rs responseStates
+func httpRedir() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// w.Header().Set("Cache-Control", "must-revalidate, no-store")
+		// w.Header().Set("Content-Type", " text/html;charset=UTF-8")
+		// w.Header().Set("Location", "https://"+r.Host)
+		// w.WriteHeader(http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "https://"+r.Host, http.StatusTemporaryRedirect)
+		llog.Debug("redir to: " + "https://" + r.Host)
+	})
 
-	err := r.ParseForm()
-	if err != nil {
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-
-	hwAddr, err := nic.StringToMAC(strings.Join(r.Form["mac"], ""))
-	if err != nil {
-		llog.Error(err.Error())
-		rs.Status = "error"
-		rs.Extra = err.Error()
-		w.Write(rs.json())
-		return
-	}
-
-	var opts = strings.Split(r.URL.Path, "/")
-
-	switch opts[2] {
-	case "broadcast":
-		wol.BroadcastMagicPack(hwAddr)
-		_, err = recent.Add(hwAddr, strings.Join(r.Form["desc"], ""))
-		if err != nil {
-			llog.Error("Error to add recent: " + err.Error())
-			rs.Status = "error"
-			rs.Extra = err.Error()
-			w.Write(rs.json())
-			return
-		}
-	case "remove":
-		err = recent.Remove(hwAddr)
-		if err != nil {
-			llog.Error("Error to remove recent: " + err.Error())
-			rs.Status = "error"
-			rs.Extra = err.Error()
-			w.Write(rs.json())
-			return
-		}
-
-	case "modify":
-		_, err = recent.Modify(hwAddr, strings.Join(r.Form["desc"], ""))
-		if err != nil {
-			llog.Error("modify desc:" + err.Error())
-			rs.Status = "error"
-			rs.Extra = err.Error()
-			w.Write(rs.json())
-			return
-		}
-	default:
-		llog.Error("unknown command")
-		rs.Status = "error"
-		rs.Extra = "unknown command"
-		w.Write(rs.json())
-		return
-	}
-
-	rs.Status = "success"
-	w.Write(rs.json())
+	llog.Debug("http redir listen: " + fmt.Sprintf("localhost:%d", config.HttpPort))
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", config.HttpPort), nil)
 }
 
-func WEBServ() {
-	llog.Info("WEB Server listen on port:" + strconv.Itoa(config.Cfg.WebsPort))
-
-	http.HandleFunc("/opt/", basicAuth(respOpt))
-	http.HandleFunc("/", basicAuth(respStatic))
-	http.HandleFunc("/recents", basicAuth(putJson))
-
-	err := http.ListenAndServe(":"+strconv.Itoa(config.Cfg.WebsPort), nil)
-	if err != nil {
-		llog.Error("ListenAndServe: " + err.Error())
+func WEBServ(ch chan string) {
+	go httpServ(ch)
+	if config.Cfg.Webs.EnableTls {
+		go httpRedir()
+		go proxyStart()
 	}
-
 }
 
 func basicAuth(next http.HandlerFunc) http.HandlerFunc {

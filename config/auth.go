@@ -19,22 +19,19 @@ func isBcryptHash(input string) bool {
 }
 
 func encodePassword(password string) string {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost) //加密处理
-	if err != nil {
-		fmt.Println(err)
-	}
-	encodePWD := string(hash) // 保存在数据库的密码，虽然每次生成都不同，只需保存一份即可
+	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost) //加密处理
+	encodePWD := string(hash)                                                    // 保存在数据库的密码，虽然每次生成都不同，只需保存一份即可
 	return encodePWD
 }
 
 func AuthUser(u string, p string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(Cfg.Password), []byte(p))
-	if u == Cfg.Username && err == nil {
+	err := bcrypt.CompareHashAndPassword([]byte(Cfg.Auth.Password), []byte(p))
+	if u == Cfg.Auth.Username && err == nil {
 		return true
 	}
 	return false
 }
 
 func RequireAuth() bool {
-	return Cfg.Authentication && Cfg.Username != "" && Cfg.Password != ""
+	return Cfg.Auth.Authentication && Cfg.Auth.Username != "" && Cfg.Auth.Password != ""
 }

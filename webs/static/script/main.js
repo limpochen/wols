@@ -17,7 +17,7 @@ $(document).ready(function () {
 
     tips.Create();
     recents.Load();
-    $("#new-send form").append('<button id="button-rand" type="button" onclick="randMac()">rand...</button>');
+    //$("#new-send form").append('<button id="button-rand" type="button" onclick="randMac()">rand...</button>');
 
     $("#main-send").on("click", () => {
         if ($.trim($("#input-mac").val()) == "") {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"wols/config"
 	"wols/llog"
@@ -25,7 +26,8 @@ func main() {
 	}
 
 	if err = config.Load(); err != nil {
-		llog.Error(err.Error())
+		fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
+		return
 	}
 
 	if config.HWAddr != "" {
@@ -34,7 +36,17 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		wol.BroadcastMagicPack(hwAddr)
+		wol.BroadcastMagicPack(hwAddr, "Command line")
+		return
+	}
+
+	if !config.Cfg.Wols.EnableWols || !config.Cfg.Webs.EnableWebs {
+		fmt.Fprintln(os.Stderr, "No services are enabled, Modify the configuration file to enable it.")
+		return
+	}
+
+	if err = llog.LevelLog(config.LvlInfo, "WOLS started."); err != nil {
+		fmt.Println("Log to file:", err)
 		return
 	}
 
@@ -43,12 +55,19 @@ func main() {
 		llog.Debug(err.Error())
 	}
 
-	if config.Cfg.EnableWebs {
-		go webs.WEBServ()
+	config.HttpPort = config.Cfg.Webs.WebsPort + 10
+	config.HttpsPort = config.Cfg.Webs.WebsPort + 20
+
+	chWols := make(chan string)
+	chWebs := make(chan string)
+	chProxy := make(chan string)
+
+	if config.Cfg.Wols.EnableWols {
+		go wol.WOLServ(chWols)
 	}
 
-	if config.Cfg.EnableWols {
-		go wol.WOLServ()
+	if config.Cfg.Webs.EnableWebs {
+		go webs.WEBServ(chWebs)
 	}
 
 	//if !config.NoScan {
@@ -57,5 +76,38 @@ func main() {
 
 	c = make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	<-c
+
+	for {
+		interrupt := false
+		select {
+		case status := <-chWols:
+			if status == "ok" {
+				llog.Info("WOL Server listen on port:" + strconv.Itoa(config.Cfg.Wols.WolsPort))
+			}
+			if status == "error" {
+				interrupt = true
+			}
+		case status := <-chWebs:
+			if status == "ok" {
+				llog.Info("WEB Server listen on port:" + strconv.Itoa(config.Cfg.Webs.WebsPort))
+			}
+			if status == "error" || status == "shutdown" {
+				interrupt = true
+			}
+		case status := <-chProxy:
+			if status == "error" {
+				interrupt = true
+			}
+
+		case <-c:
+			interrupt = true
+		}
+
+		if interrupt {
+			llog.Warn("wols shutting down.")
+			break
+		}
+
+	}
+
 }

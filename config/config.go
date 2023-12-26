@@ -2,7 +2,11 @@ package config
 
 import (
 	_ "embed"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -22,19 +26,30 @@ const (
 )
 
 type config struct {
-	Authentication bool
-	Username       string
-	Password       string
-	EnableLog      bool   //default: true
-	LogFile        string //default:
-	LogLevel       int    //default: info
-	RecentsFile    string //default:
-	EnableWols     bool   //default: trur
-	EnableWebs     bool   //default: true
-	WolsPort       int    //default: 12307
-	WebsPort       int    //default: 7077
 	BroadcastPort  int    //default: 7
 	BroadcastCycle int    //default: 3
+	RecentsFile    string //default:
+	Auth           struct {
+		Authentication bool
+		Username       string
+		Password       string
+	}
+	Llog struct {
+		EnableLog bool   //default: true
+		LogFile   string //default:
+		LogLevel  int    //default: info
+	}
+	Wols struct {
+		EnableWols bool //default: trur
+		WolsPort   int  //default: 12307
+	}
+	Webs struct {
+		EnableWebs bool //default: true
+		WebsPort   int  //default: 7077
+		EnableTls  bool
+		CertFile   string
+		KeyFile    string
+	}
 }
 
 var Cfg config
@@ -45,94 +60,103 @@ var (
 	ConfigFile string //default:
 )
 
+var (
+	HttpPort  int
+	HttpsPort int
+)
+
 func init() {
 	ExecPath, _ = os.Executable()
 	ExecPath, _ = filepath.EvalSymlinks(ExecPath)
-	ext := filepath.Ext(ExecPath)
-	BaseName = strings.TrimSuffix(ExecPath, ext)
-	ExecPath = filepath.Dir(ExecPath)
-
+	BaseName = filepath.Base(strings.TrimSuffix(ExecPath, filepath.Ext(ExecPath)))
+	ExecPath = strings.ReplaceAll(filepath.Dir(ExecPath), "\\", "/")
 }
 
 func Load() error {
-	var configFile string
 	var isChange = false
 
-	if ConfigFile == "" {
-		configFile = filepath.ToSlash(BaseName) + ".toml"
+	ConfigFile = path.Join(HomePath, BaseName+".toml")
+
+	_, err := os.Lstat(ConfigFile)
+	if errors.Is(err, fs.ErrNotExist) {
+		if err := os.WriteFile(ConfigFile, sampleToml, 0644); err != nil {
+			return fmt.Errorf("create default profile %v", err)
+		}
 	}
 
-	if !FileExist(configFile) {
-		os.WriteFile(configFile, sampleToml, 0644)
-	}
-
-	md, err := toml.DecodeFile(configFile, &Cfg)
+	md, err := toml.DecodeFile(ConfigFile, &Cfg)
 	if err != nil {
 		return err
 	}
 
-	if !md.IsDefined("Authentication") {
-		Cfg.Authentication = false
-		isChange = true
-	}
-
-	if Cfg.Username != "" && Cfg.Password != "" && !isBcryptHash(Cfg.Password) {
-		Cfg.Password = encodePassword(Cfg.Password)
-		isChange = true
-	}
-
-	if !md.IsDefined("EnableLog") {
-		Cfg.EnableLog = true
-		isChange = true
-	}
-
-	if !md.IsDefined("LogFile") || Cfg.LogFile == "" {
-		Cfg.LogFile = BaseName + ".log"
-		isChange = true
-	}
-
-	if !md.IsDefined("LogLevel") {
-		Cfg.LogLevel = LvlInfo
-		isChange = true
-	}
-
-	if Cfg.RecentsFile == "" {
-		Cfg.RecentsFile = BaseName + ".recent"
-		isChange = true
-	}
-
-	if !md.IsDefined("EnableWols") {
-		Cfg.EnableWols = true
-		isChange = true
-	}
-
-	if !md.IsDefined("EnableWebs") {
-		Cfg.EnableWebs = true
-		isChange = true
-	}
-
-	if !md.IsDefined("WolsPort") {
-		Cfg.WolsPort = 12307
-		isChange = true
-	}
-
-	if !md.IsDefined("WebsPort") {
-		Cfg.WebsPort = 7077
-		isChange = true
-	}
-
 	if !md.IsDefined("BroadcastPort") {
 		Cfg.BroadcastPort = 7
-		isChange = true
 	}
-
 	if !md.IsDefined("BroadcastCycle") {
 		Cfg.BroadcastCycle = 3
-		isChange = true
+	}
+	if !md.IsDefined("RecentsFile") || Cfg.RecentsFile == "" {
+		Cfg.RecentsFile = path.Join(HomePath, BaseName+".recent")
+	}
+
+	if !md.IsDefined("Auth", "Authentication") {
+		println("Authentication")
+		Cfg.Auth.Authentication = false
+	}
+	if Cfg.Auth.Authentication {
+		if Cfg.Auth.Username != "" && Cfg.Auth.Password != "" {
+			if !isBcryptHash(Cfg.Auth.Password) {
+				Cfg.Auth.Password = encodePassword(Cfg.Auth.Password)
+				isChange = true
+			}
+		} else {
+			return errors.New("username and password should be configured")
+		}
+	}
+
+	if !md.IsDefined("Llog", "EnableLog") {
+		Cfg.Llog.EnableLog = true
+	}
+	if !md.IsDefined("Llog", "LogFile") || Cfg.Llog.LogFile == "" {
+		Cfg.Llog.LogFile = path.Join(HomePath, BaseName+".log")
+	}
+	if !md.IsDefined("Llog", "LogLevel") {
+		Cfg.Llog.LogLevel = LvlInfo
+	}
+
+	if !md.IsDefined("Wols", "EnableWols") {
+		Cfg.Wols.EnableWols = true
+	}
+	if !md.IsDefined("Wols", "WolsPort") {
+		Cfg.Wols.WolsPort = 12307
+	}
+
+	if !md.IsDefined("Webs", "EnableWebs") {
+		Cfg.Webs.EnableWebs = true
+	}
+	if !md.IsDefined("Webs", "WebsPort") {
+		Cfg.Webs.WebsPort = 7077
+	}
+
+	if !md.IsDefined("Webs", "EnableTls") {
+		Cfg.Webs.EnableTls = false
+	}
+	if Cfg.Webs.EnableTls {
+		if Cfg.Webs.CertFile == "" || Cfg.Webs.KeyFile == "" {
+			return errors.New("please specify the certificate and key file")
+		}
+		_, err := os.Lstat(Cfg.Webs.CertFile)
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("file not exist: %v", Cfg.Webs.CertFile)
+		}
+		_, err = os.Lstat(Cfg.Webs.KeyFile)
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("file not exist: %v", Cfg.Webs.KeyFile)
+		}
 	}
 
 	if isChange {
-		cf, err := os.OpenFile(configFile, os.O_CREATE|os.O_WRONLY, 0666)
+		cf, err := os.OpenFile(ConfigFile, os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
@@ -141,9 +165,4 @@ func Load() error {
 	}
 
 	return nil
-}
-
-func FileExist(path string) bool {
-	_, err := os.Lstat(path)
-	return !os.IsNotExist(err) //需要添加判断权限的操作
 }

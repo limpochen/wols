@@ -6,6 +6,7 @@ import (
 	"wols/config"
 	"wols/llog"
 	"wols/nic"
+	"wols/recent"
 )
 
 const MagicPacketLen = 102
@@ -34,7 +35,7 @@ func genMagicPacket(mac nic.HardwareAddrFixed) (packet magicPacket) {
 	return packet
 }
 
-func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) {
+func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed, desc string) {
 	nic.ParseNif()
 	for i := range nic.Nifs {
 		for ii := range nic.Nifs[i].Nips {
@@ -63,12 +64,16 @@ func BroadcastMagicPack(hwAddr nic.HardwareAddrFixed) {
 				}
 			}
 			c.Close()
-			llog.Info(fmt.Sprintf("from %v broadcast %v at %s:%d",
+			llog.Info(fmt.Sprintf("from %v broadcast %v on %s:%d",
 				nic.Nifs[i].Nips[ii].Ip.String(),
 				hwAddr.String(),
 				nic.Nifs[i].Nips[ii].GetBroadcastIP().String(),
 				config.Cfg.BroadcastPort))
 		}
+	}
+
+	if _, err := recent.Add(hwAddr, desc); err != nil {
+		llog.Error("Add recent: " + err.Error())
 	}
 }
 

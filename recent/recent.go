@@ -22,10 +22,8 @@ type recent struct {
 
 var recents []recent
 
-var recentsFile = config.BaseName + ".recent"
-
 func Load() error {
-	rf, err := os.ReadFile(recentsFile)
+	rf, err := os.ReadFile(config.Cfg.RecentsFile)
 	if err != nil {
 		return err
 	}
@@ -54,13 +52,13 @@ func Check() error {
 
 func Write() error {
 	if len(recents) == 0 {
-		if err := os.Remove(recentsFile); err != nil {
+		if err := os.Remove(config.Cfg.RecentsFile); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := os.WriteFile(recentsFile, Json(), 0666); err != nil {
+	if err := os.WriteFile(config.Cfg.RecentsFile, Json(), 0644); err != nil {
 		return err
 	}
 	return nil

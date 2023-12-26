@@ -1,4 +1,5 @@
 wols
+wols.toml
 *.exe
 *.tar
 *.gz
@@ -8,4 +9,7 @@ wols
 *.recent
 *.xlsx
 *.txt
-wols.toml
+*.pem
+*.key
+*.csr
+*.crt
